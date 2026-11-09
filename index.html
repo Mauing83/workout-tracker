@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>5-Day Workout Tracker (Calisthenics & Dumbbell)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d',
+                        },
+                        darkbg: '#0f172a',
+                        darkcard: '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        
+        .timer-ring {
+            transition: stroke-dashoffset 0.35s;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-slate-950">
+
+    <!-- Top Navigation Header -->
+    <header class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('dashboard')">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-slate-950 font-bold text-xl shadow-lg shadow-brand-500/20">
+                    <i data-lucide="dumbbell" class="w-6 h-6 stroke-[2.5]"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-lg leading-tight tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">FitTrack Pro</h1>
+                    <p class="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">5-Day Split Tracker</p>
+                </div>
+            </div>
+            
+            <nav class="flex items-center space-x-1 sm:space-x-2">
+                <button onclick="switchTab('workout')" id="nav-workout" class="px-3 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-2 bg-brand-600/20 text-brand-400 border border-brand-500/30">
+                    <i data-lucide="play" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Workout</span>
+                </button>
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition flex items-center space-x-2">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Stats</span>
+                </button>
+                <button onclick="switchTab('history')" id="nav-history" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition flex items-center space-x-2">
+                    <i data-lucide="history" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">History</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Dynamic Content Container -->
+    <main class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 pb-24">
+
+        <!-- TAB 1: WORKOUT SELECTION & SESSION EXECUTION -->
+        <section id="tab-workout" class="space-y-6">
+            
+            <!-- Active Workout View (If session started) -->
+            <div id="active-session-container" class="hidden space-y-6">
+                <!-- Session Header Banner -->
+                <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/60 rounded-2xl p-5 shadow-xl flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span id="active-program-badge" class="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700">Program</span>
+                            <span id="active-day-badge" class="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-brand-500/20 text-brand-400 border border-brand-500/30">Day 1</span>
+                        </div>
+                        <h2 id="active-workout-title" class="text-2xl font-black text-white mt-1">Push Session</h2>
+                        <p id="active-workout-subtitle" class="text-xs text-slate-400 mt-0.5">Chest / Shoulders / Triceps</p>
+                    </div>
+
+                    <div class="flex items-center space-x-3">
+                        <button id="btn-quit-workout" type="button" onclick="confirmAbortWorkout()" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/50 border border-rose-800/40 transition cursor-pointer">
+                            Quit Workout
+                        </button>
+                        <button id="btn-finish-workout" type="button" onclick="finishWorkout()" class="px-4 py-2 rounded-xl text-xs font-bold bg-brand-500 hover:bg-brand-400 text-slate-950 transition shadow-lg shadow-brand-500/20 flex items-center space-x-1.5 cursor-pointer">
+                            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                            <span>Finish</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Exercise List Grid -->
+                <div id="exercise-list" class="space-y-4">
+                    <!-- Dynamic rendering of exercise cards -->
+                </div>
+            </div>
+
+            <!-- Workout Day Selection Grid (If no session active) -->
+            <div id="workout-picker-container" class="space-y-6">
+                
+                <!-- PROGRAM SELECTOR TOGGLE -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-brand-400">Select Active Plan</span>
+                        <h2 class="text-lg font-bold text-white">Choose Workout Program</h2>
+                        <p class="text-xs text-slate-400">Switch between Calisthenics bodyweight progression and Dumbbell hypertrophy splits.</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 w-full md:w-auto">
+                        <button id="prog-btn-cali" onclick="switchProgram('calisthenics')" class="px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 border bg-brand-500 text-slate-950 border-brand-400 shadow-md">
+                            <i data-lucide="user" class="w-4 h-4"></i>
+                            <span>5-Day Calisthenics</span>
+                        </button>
+                        <button id="prog-btn-db" onclick="switchProgram('dumbbell')" class="px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 border bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200">
+                            <i data-lucide="dumbbell" class="w-4 h-4"></i>
+                            <span>5-Day Dumbbell</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="text-center sm:text-left space-y-1">
+                    <h2 id="program-display-title" class="text-2xl font-black tracking-tight text-white">5-Day Program Plan</h2>
+                    <p id="program-display-desc" class="text-sm text-slate-400">Choose today's targeted muscle focus to begin tracking your reps & loads.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="days-grid">
+                    <!-- Day cards dynamically injected -->
+                </div>
+
+                <!-- Program Structure Overview Card -->
+                <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-3">
+                    <h3 class="text-sm font-bold text-slate-200 flex items-center space-x-2">
+                        <i data-lucide="info" class="w-4 h-4 text-brand-400"></i>
+                        <span>Program Structure & Progression Logic</span>
+                    </h3>
+                    <ul id="program-info-list" class="text-xs text-slate-400 space-y-2 list-disc list-inside">
+                        <!-- Dynamic Info Injection -->
+                    </ul>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- TAB 2: STATS & DASHBOARD -->
+        <section id="tab-dashboard" class="hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-black text-white">Workout Statistics</h2>
+                    <p class="text-sm text-slate-400">Track your overall volume, consistency, and progress over time.</p>
+                </div>
+            </div>
+
+            <!-- Quick Metrics Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Completed</span>
+                    <div class="mt-2 flex items-baseline space-x-1">
+                        <span id="stat-total-workouts" class="text-3xl font-black text-white">0</span>
+                        <span class="text-xs text-slate-400">sessions</span>
+                    </div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Reps</span>
+                    <div class="mt-2 flex items-baseline space-x-1">
+                        <span id="stat-total-reps" class="text-3xl font-black text-brand-400">0</span>
+                        <span class="text-xs text-slate-400">reps</span>
+                    </div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Current Streak</span>
+                    <div class="mt-2 flex items-baseline space-x-1">
+                        <span id="stat-streak" class="text-3xl font-black text-amber-400">0</span>
+                        <span class="text-xs text-slate-400">days</span>
+                    </div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+                    <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Favorite Day</span>
+                    <div class="mt-2 flex items-baseline space-x-1">
+                        <span id="stat-favorite-day" class="text-xl font-extrabold text-indigo-400 truncate">N/A</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visual Charts -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Volume Chart -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                    <h3 class="text-sm font-bold text-slate-200">Volume Logged (Reps per Session)</h3>
+                    <div class="h-56 relative">
+                        <canvas id="chart-volume"></canvas>
+                    </div>
+                </div>
+                <!-- Day Distribution Chart -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                    <h3 class="text-sm font-bold text-slate-200">Workout Type Distribution</h3>
+                    <div class="h-56 relative flex items-center justify-center">
+                        <canvas id="chart-distribution"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: WORKOUT HISTORY -->
+        <section id="tab-history" class="hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-2xl font-black text-white">Completed Sessions Log</h2>
+                    <p class="text-sm text-slate-400">Detailed records of all completed workout sessions.</p>
+                </div>
+                <button onclick="clearHistoryData()" class="px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-950/50 border border-rose-900/40 rounded-lg transition cursor-pointer">
+                    Clear Log
+                </button>
+            </div>
+
+            <div id="history-list-container" class="space-y-4">
+                <!-- Dynamic history logs rendered here -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Floating Global Rest Timer Overlay Drawer -->
+    <div id="timer-modal" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-md bg-slate-900/95 backdrop-blur-xl border border-brand-500/40 shadow-2xl rounded-2xl p-4 transition-all duration-300 translate-y-32 opacity-0 pointer-events-none z-50">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="relative w-12 h-12 flex items-center justify-center">
+                    <svg class="w-12 h-12">
+                        <circle class="text-slate-800" stroke-width="4" stroke="currentColor" fill="transparent" r="20" cx="24" cy="24"/>
+                        <circle id="timer-progress-ring" class="text-brand-400 timer-ring" stroke-width="4" stroke-dasharray="125.6" stroke-dashoffset="0" stroke-linecap="round" stroke="currentColor" fill="transparent" r="20" cx="24" cy="24"/>
+                    </svg>
+                    <span id="timer-countdown-text" class="absolute font-black text-xs text-white">45s</span>
+                </div>
+                <div>
+                    <h4 class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Rest In Progress</h4>
+                    <p id="timer-exercise-name" class="text-sm font-bold text-white truncate max-w-[180px]">Next: Set 2</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <button onclick="adjustTimer(-10)" class="px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-bold transition cursor-pointer">-10s</button>
+                <button onclick="adjustTimer(10)" class="px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-bold transition cursor-pointer">+10s</button>
+                <button onclick="skipRestTimer()" class="p-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 rounded-lg transition cursor-pointer">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application JavaScript Logic -->
+    <script>
+        // PROGRAM 1: 5-DAY CALISTHENICS PROGRAM
+        const CALISTHENICS_PROGRAM = [
+            {
+                id: 'cali_day1',
+                day: 'Day 1',
+                title: 'Push (Chest / Shoulders / Triceps)',
+                subtitle: 'Chest, Shoulders & Triceps Focus',
+                exercises: [
+                    {
+                        name: 'Push-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'Standard x 20+', rest: 45, defaultReps: 20, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Feet-elevated x 10-12', rest: 45, defaultReps: 12, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Archer or backpack push-ups x 5-6', rest: 90, defaultReps: 6, defaultWeight: 5 }
+                        ]
+                    },
+                    {
+                        name: 'Dips',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'Bodyweight x 15-20', rest: 45, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Slow (3 sec down) x 10-12', rest: 45, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Backpack-weighted x 6-8', rest: 90, defaultReps: 6, defaultWeight: 5 }
+                        ]
+                    },
+                    {
+                        name: 'Pike Push-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'Standard x 15-20', rest: 45, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Feet-elevated x 10-12', rest: 45, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Feet-elevated, 4 sec down x 5-6', rest: 90, defaultReps: 5, defaultWeight: 0 }
+                        ]
+                    },
+                    {
+                        name: 'Diamond Push-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'AMRAP', rest: 30, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Slow (3 sec down) x 10-12', rest: 30, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    },
+                    {
+                        name: 'Wide Push-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'x 15-20', rest: 30, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Feet-elevated x 10-12', rest: 30, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    },
+                    {
+                        name: 'Plank Shoulder Taps',
+                        sets: [
+                            { type: 'Fat Loss', desc: '20 taps', rest: 30, defaultReps: 20, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: '30 taps', rest: 30, defaultReps: 30, defaultWeight: 0 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'cali_day2',
+                day: 'Day 2',
+                title: 'Pull (Back / Biceps)',
+                subtitle: 'Back & Biceps Focus',
+                exercises: [
+                    {
+                        name: 'Pull-ups / Chin-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'Bodyweight AMRAP (aim 15+)', rest: 45, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Slow 3s down x 8-10 / to failure', rest: 45, defaultReps: 8, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Backpack-weighted x 4-6', rest: 90, defaultReps: 5, defaultWeight: 5 }
+                        ]
+                    },
+                    {
+                        name: 'Inverted Rows',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'Feet on floor x 15-20', rest: 45, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Feet-elevated x 10-12', rest: 45, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Feet-elevated, backpack on chest x 6', rest: 90, defaultReps: 6, defaultWeight: 5 }
+                        ]
+                    },
+                    {
+                        name: 'Scapular Pull-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'x 12-15', rest: 30, defaultReps: 12, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: '3-sec hold at top x 10', rest: 30, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    },
+                    {
+                        name: 'Towel-resisted Biceps Curls',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'x 15-20 per arm', rest: 30, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'x 10-12 per arm', rest: 30, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    },
+                    {
+                        name: 'Prone Y-T-W Raises',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'x 8 each', rest: 30, defaultReps: 8, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'x 8 each, 2-sec hold', rest: 30, defaultReps: 8, defaultWeight: 0 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'cali_day3',
+                day: 'Day 3',
+                title: 'Legs + Core',
+                subtitle: 'Lower Body & Abdominal Focus',
+                exercises: [
+                    {
+                        name: 'Squats',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'Bodyweight x 25', rest: 45, defaultReps: 25, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Slow (4 sec down) x 12-15', rest: 45, defaultReps: 12, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Backpack goblet squat x 8-10', rest: 120, defaultReps: 8, defaultWeight: 10 }
+                        ]
+                    },
+                    {
+                        name: 'Bulgarian Split Squats',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'x 15-20 per leg', rest: 45, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Slow (3 sec down) x 10-12 per leg', rest: 45, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Backpack-weighted x 8 per leg', rest: 120, defaultReps: 8, defaultWeight: 8 }
+                        ]
+                    },
+                    {
+                        name: 'Single-leg Romanian Deadlifts',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'x 12-15 per leg', rest: 45, defaultReps: 12, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Slow x 10-12 per leg', rest: 45, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Backpack-weighted x 8 per leg', rest: 90, defaultReps: 8, defaultWeight: 8 }
+                        ]
+                    },
+                    {
+                        name: 'Reverse Lunges',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'x 15-20 per leg', rest: 45, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Slow x 10-12 per leg', rest: 45, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Backpack-weighted x 8 per leg', rest: 90, defaultReps: 8, defaultWeight: 8 }
+                        ]
+                    },
+                    {
+                        name: 'Single-leg Glute Bridge',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'x 15-20 per leg', rest: 30, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Feet-elevated x 12 per leg', rest: 30, defaultReps: 12, defaultWeight: 0 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    },
+                    {
+                        name: 'Single-leg Calf Raises',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'x 20 per leg', rest: 30, defaultReps: 20, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Slow x 15 per leg', rest: 30, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    },
+                    {
+                        name: 'Hanging Leg Raises',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'AMRAP', rest: 30, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: '12-15 controlled', rest: 30, defaultReps: 12, defaultWeight: 0 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'cali_day4',
+                day: 'Day 4',
+                title: 'Upper A',
+                subtitle: 'Chest / Back / Shoulders / Arms',
+                exercises: [
+                    {
+                        name: 'Decline (feet-elevated) Push-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'x 15-20', rest: 45, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Slow (3 sec down) x 10-12', rest: 45, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Archer push-ups x 5-6', rest: 90, defaultReps: 5, defaultWeight: 0 }
+                        ]
+                    },
+                    {
+                        name: 'Inverted Rows',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'Feet on floor x 15-20', rest: 45, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Feet-elevated x 10-12', rest: 45, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Backpack on chest x 6', rest: 90, defaultReps: 6, defaultWeight: 5 }
+                        ]
+                    },
+                    {
+                        name: 'Pike Push-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'x 15-20', rest: 45, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Feet-elevated x 10-12', rest: 45, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: '4 sec down x 5-6', rest: 90, defaultReps: 5, defaultWeight: 0 }
+                        ]
+                    },
+                    {
+                        name: 'Dips',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'Bodyweight x 15-20', rest: 45, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Slow (3 sec down) x 10-12', rest: 45, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Backpack-weighted x 6-8', rest: 90, defaultReps: 6, defaultWeight: 5 }
+                        ]
+                    },
+                    {
+                        name: 'Wide-grip Pull-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'Bodyweight AMRAP', rest: 45, defaultReps: 12, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Bodyweight x 8-10', rest: 45, defaultReps: 8, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Backpack-weighted x 4-6', rest: 90, defaultReps: 4, defaultWeight: 5 }
+                        ]
+                    },
+                    {
+                        name: 'Close-grip Chin-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'AMRAP', rest: 30, defaultReps: 12, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Slow x 8-10', rest: 30, defaultReps: 8, defaultWeight: 0 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'cali_day5',
+                day: 'Day 5',
+                title: 'Upper B',
+                subtitle: 'Back / Chest / Arms + Core',
+                exercises: [
+                    {
+                        name: 'Chin-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'Bodyweight AMRAP', rest: 45, defaultReps: 12, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Bodyweight to failure', rest: 45, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Backpack-weighted x 4-6', rest: 90, defaultReps: 5, defaultWeight: 5 }
+                        ]
+                    },
+                    {
+                        name: 'Push-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'Standard x 20+', rest: 45, defaultReps: 20, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Feet-elevated x 10-12', rest: 45, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Archer or backpack push-ups x 5-6', rest: 90, defaultReps: 5, defaultWeight: 5 }
+                        ]
+                    },
+                    {
+                        name: 'Inverted Rows',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'Feet on floor x 15-20', rest: 45, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Feet-elevated x 10-12', rest: 45, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Backpack on chest x 6', rest: 90, defaultReps: 6, defaultWeight: 5 }
+                        ]
+                    },
+                    {
+                        name: 'Close-grip / Diamond Push-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'AMRAP', rest: 30, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'Slow x 10-12', rest: 30, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    },
+                    {
+                        name: 'Hanging Knee/Leg Raises',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'AMRAP', rest: 30, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: '12-15 controlled', rest: 30, defaultReps: 12, defaultWeight: 0 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    },
+                    {
+                        name: 'Plank',
+                        sets: [
+                            { type: 'Fat Loss', desc: '45 sec hold', rest: 30, defaultReps: 45, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: '60 sec hold', rest: 30, defaultReps: 60, defaultWeight: 0 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        // PROGRAM 2: 5-DAY DUMBBELL & PULL-UP/DIP PROGRAM
+        const DUMBBELL_PROGRAM = [
+            {
+                id: 'db_day1',
+                day: 'Day 1',
+                title: 'Push (Chest / Shoulders / Triceps)',
+                subtitle: 'Dumbbell Heavy Push Focus',
+                exercises: [
+                    {
+                        name: 'Dumbbell Bench Press',
+                        sets: [
+                            { type: 'Fat Loss', desc: '12kg x 20', rest: 45, defaultReps: 20, defaultWeight: 12 },
+                            { type: 'Hypertrophy', desc: '18kg x 10', rest: 45, defaultReps: 10, defaultWeight: 18 },
+                            { type: 'Strength', desc: '20-22kg x 5', rest: 90, defaultReps: 5, defaultWeight: 22 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Incline Press',
+                        sets: [
+                            { type: 'Fat Loss', desc: '10kg x 15-20', rest: 45, defaultReps: 15, defaultWeight: 10 },
+                            { type: 'Hypertrophy', desc: '14kg x 10-12', rest: 45, defaultReps: 10, defaultWeight: 14 },
+                            { type: 'Strength', desc: '16kg x 6', rest: 90, defaultReps: 6, defaultWeight: 16 }
+                        ]
+                    },
+                    {
+                        name: 'Dips (BW / Weighted)',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'Bodyweight x 15-20', rest: 45, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'BW / Light x 10-12', rest: 45, defaultReps: 10, defaultWeight: 5 },
+                            { type: 'Strength', desc: 'Weighted x 6-8', rest: 90, defaultReps: 6, defaultWeight: 10 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Shoulder Press',
+                        sets: [
+                            { type: 'Fat Loss', desc: '11kg x 15-20', rest: 45, defaultReps: 15, defaultWeight: 11 },
+                            { type: 'Hypertrophy', desc: '16kg x 10', rest: 45, defaultReps: 10, defaultWeight: 16 },
+                            { type: 'Strength', desc: '18-20kg x 5', rest: 90, defaultReps: 5, defaultWeight: 20 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Lateral Raises',
+                        sets: [
+                            { type: 'Fat Loss', desc: '6-7kg x 15-20', rest: 30, defaultReps: 15, defaultWeight: 7 },
+                            { type: 'Hypertrophy', desc: '10kg x 12-15', rest: 30, defaultReps: 12, defaultWeight: 10 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    },
+                    {
+                        name: 'Overhead Triceps Extension',
+                        sets: [
+                            { type: 'Fat Loss', desc: '10-11kg x 15-20', rest: 30, defaultReps: 15, defaultWeight: 11 },
+                            { type: 'Hypertrophy', desc: '16kg x 12', rest: 30, defaultReps: 12, defaultWeight: 16 },
+                            { type: 'Strength', desc: '18kg x 6', rest: 60, defaultReps: 6, defaultWeight: 18 }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'db_day2',
+                day: 'Day 2',
+                title: 'Pull (Back / Biceps)',
+                subtitle: 'Dumbbell & Pull-Up Heavy Pull Focus',
+                exercises: [
+                    {
+                        name: 'Pull-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'BW AMRAP (aim 15+)', rest: 45, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'BW x 8-10', rest: 45, defaultReps: 8, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Weighted x 4-6', rest: 90, defaultReps: 5, defaultWeight: 10 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Bent-over Rows',
+                        sets: [
+                            { type: 'Fat Loss', desc: '12kg x 15-20', rest: 45, defaultReps: 15, defaultWeight: 12 },
+                            { type: 'Hypertrophy', desc: '16-18kg x 10', rest: 45, defaultReps: 10, defaultWeight: 16 },
+                            { type: 'Strength', desc: '20kg x 5-6', rest: 90, defaultReps: 6, defaultWeight: 20 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Single-arm Rows',
+                        sets: [
+                            { type: 'Fat Loss', desc: '11kg x 15-20', rest: 45, defaultReps: 15, defaultWeight: 11 },
+                            { type: 'Hypertrophy', desc: '16kg x 10-12', rest: 45, defaultReps: 10, defaultWeight: 16 },
+                            { type: 'Strength', desc: '18-20kg x 6', rest: 90, defaultReps: 6, defaultWeight: 20 }
+                        ]
+                    },
+                    {
+                        name: 'Chin-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'BW AMRAP', rest: 45, defaultReps: 12, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'BW to failure', rest: 45, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Weighted x 4-6', rest: 90, defaultReps: 5, defaultWeight: 10 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Bicep Curls',
+                        sets: [
+                            { type: 'Fat Loss', desc: '7-8kg x 15-20', rest: 30, defaultReps: 15, defaultWeight: 8 },
+                            { type: 'Hypertrophy', desc: '11.5kg x 10-12', rest: 30, defaultReps: 10, defaultWeight: 11.5 },
+                            { type: 'Strength', desc: '13-14kg x 6', rest: 60, defaultReps: 6, defaultWeight: 14 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Hammer Curls',
+                        sets: [
+                            { type: 'Fat Loss', desc: '7-8kg x 15-20', rest: 30, defaultReps: 15, defaultWeight: 8 },
+                            { type: 'Hypertrophy', desc: '10-11kg x 12', rest: 30, defaultReps: 12, defaultWeight: 11 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'db_day3',
+                day: 'Day 3',
+                title: 'Legs + Core',
+                subtitle: 'Dumbbell Heavy Leg Day Focus',
+                exercises: [
+                    {
+                        name: 'Dumbbell Goblet Squats',
+                        sets: [
+                            { type: 'Fat Loss', desc: '12kg x 15-20', rest: 45, defaultReps: 15, defaultWeight: 12 },
+                            { type: 'Hypertrophy', desc: '18kg x 10-12', rest: 45, defaultReps: 10, defaultWeight: 18 },
+                            { type: 'Strength', desc: '22-24kg x 5', rest: 120, defaultReps: 5, defaultWeight: 24 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Romanian Deadlifts',
+                        sets: [
+                            { type: 'Fat Loss', desc: '11kg x 15-20', rest: 45, defaultReps: 15, defaultWeight: 11 },
+                            { type: 'Hypertrophy', desc: '16kg x 10-12', rest: 45, defaultReps: 10, defaultWeight: 16 },
+                            { type: 'Strength', desc: '18-20kg x 5-6', rest: 120, defaultReps: 6, defaultWeight: 20 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Walking Lunges',
+                        sets: [
+                            { type: 'Fat Loss', desc: '11kg x 15-20/leg', rest: 45, defaultReps: 15, defaultWeight: 11 },
+                            { type: 'Hypertrophy', desc: '16kg x 10/leg', rest: 45, defaultReps: 10, defaultWeight: 16 },
+                            { type: 'Strength', desc: '18-20kg x 5-6/leg', rest: 120, defaultReps: 6, defaultWeight: 20 }
+                        ]
+                    },
+                    {
+                        name: 'Bulgarian Split Squats',
+                        sets: [
+                            { type: 'Fat Loss', desc: '11kg x 15-20/leg', rest: 45, defaultReps: 15, defaultWeight: 11 },
+                            { type: 'Hypertrophy', desc: '16kg x 12/leg', rest: 45, defaultReps: 12, defaultWeight: 16 },
+                            { type: 'Strength', desc: '18kg x 6/leg', rest: 90, defaultReps: 6, defaultWeight: 18 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Calf Raises',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'Light-mod x 20', rest: 30, defaultReps: 20, defaultWeight: 10 },
+                            { type: 'Hypertrophy', desc: 'Moderate x 15-20', rest: 30, defaultReps: 15, defaultWeight: 14 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    },
+                    {
+                        name: 'Hanging Leg Raises',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'AMRAP', rest: 30, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: '12-15 controlled', rest: 30, defaultReps: 12, defaultWeight: 0 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'db_day4',
+                day: 'Day 4',
+                title: 'Upper A',
+                subtitle: 'Chest / Back / Shoulders / Arms',
+                exercises: [
+                    {
+                        name: 'Dumbbell Incline Press',
+                        sets: [
+                            { type: 'Fat Loss', desc: '10kg x 15-20', rest: 45, defaultReps: 15, defaultWeight: 10 },
+                            { type: 'Hypertrophy', desc: '14-15kg x 10', rest: 45, defaultReps: 10, defaultWeight: 15 },
+                            { type: 'Strength', desc: '17kg x 6', rest: 90, defaultReps: 6, defaultWeight: 17 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Single-arm Rows',
+                        sets: [
+                            { type: 'Fat Loss', desc: '11kg x 15-20', rest: 45, defaultReps: 15, defaultWeight: 11 },
+                            { type: 'Hypertrophy', desc: '16kg x 10-12', rest: 45, defaultReps: 10, defaultWeight: 16 },
+                            { type: 'Strength', desc: '18kg x 6', rest: 90, defaultReps: 6, defaultWeight: 18 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Arnold Press',
+                        sets: [
+                            { type: 'Fat Loss', desc: '10kg x 15-20', rest: 45, defaultReps: 15, defaultWeight: 10 },
+                            { type: 'Hypertrophy', desc: '14kg x 10-12', rest: 45, defaultReps: 10, defaultWeight: 14 },
+                            { type: 'Strength', desc: '16kg x 6', rest: 90, defaultReps: 6, defaultWeight: 16 }
+                        ]
+                    },
+                    {
+                        name: 'Dips',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'BW x 15-20', rest: 45, defaultReps: 15, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'BW / Light x 10-12', rest: 45, defaultReps: 10, defaultWeight: 5 },
+                            { type: 'Strength', desc: 'Weighted x 6-8', rest: 90, defaultReps: 6, defaultWeight: 10 }
+                        ]
+                    },
+                    {
+                        name: 'Wide-grip Pull-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'BW AMRAP', rest: 45, defaultReps: 12, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'BW x 8-10', rest: 45, defaultReps: 8, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Weighted x 4-6', rest: 90, defaultReps: 4, defaultWeight: 10 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Curls (Alt Bicep/Hammer)',
+                        sets: [
+                            { type: 'Fat Loss', desc: '7-8kg x 15-20', rest: 30, defaultReps: 15, defaultWeight: 8 },
+                            { type: 'Hypertrophy', desc: '11kg x 10-12', rest: 30, defaultReps: 10, defaultWeight: 11 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'db_day5',
+                day: 'Day 5',
+                title: 'Upper B',
+                subtitle: 'Back / Shoulders / Arms + Core',
+                exercises: [
+                    {
+                        name: 'Chin-ups',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'BW AMRAP', rest: 45, defaultReps: 12, defaultWeight: 0 },
+                            { type: 'Hypertrophy', desc: 'BW to failure', rest: 45, defaultReps: 10, defaultWeight: 0 },
+                            { type: 'Strength', desc: 'Weighted x 4-6', rest: 90, defaultReps: 5, defaultWeight: 10 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Bent-over Rows',
+                        sets: [
+                            { type: 'Fat Loss', desc: '12kg x 15-20', rest: 45, defaultReps: 15, defaultWeight: 12 },
+                            { type: 'Hypertrophy', desc: '16-18kg x 10', rest: 45, defaultReps: 10, defaultWeight: 16 },
+                            { type: 'Strength', desc: '20kg x 5-6', rest: 90, defaultReps: 6, defaultWeight: 20 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Lateral Raises',
+                        sets: [
+                            { type: 'Fat Loss', desc: '6-7kg x 15-20', rest: 30, defaultReps: 15, defaultWeight: 7 },
+                            { type: 'Hypertrophy', desc: '10kg x 12-15', rest: 30, defaultReps: 12, defaultWeight: 10 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    },
+                    {
+                        name: 'Overhead Triceps Extension',
+                        sets: [
+                            { type: 'Fat Loss', desc: '10-11kg x 15-20', rest: 30, defaultReps: 15, defaultWeight: 11 },
+                            { type: 'Hypertrophy', desc: '16kg x 12', rest: 30, defaultReps: 12, defaultWeight: 16 },
+                            { type: 'Strength', desc: '18kg x 6', rest: 60, defaultReps: 6, defaultWeight: 18 }
+                        ]
+                    },
+                    {
+                        name: 'Dumbbell Hammer Curls',
+                        sets: [
+                            { type: 'Fat Loss', desc: '7-8kg x 15-20', rest: 30, defaultReps: 15, defaultWeight: 8 },
+                            { type: 'Hypertrophy', desc: '10-11kg x 12', rest: 30, defaultReps: 12, defaultWeight: 11 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    },
+                    {
+                        name: 'Weighted Sit-ups / Russian Twists',
+                        sets: [
+                            { type: 'Fat Loss', desc: 'Light x 20', rest: 30, defaultReps: 20, defaultWeight: 5 },
+                            { type: 'Hypertrophy', desc: 'Moderate x 15-20', rest: 30, defaultReps: 15, defaultWeight: 10 },
+                            { type: 'Strength', desc: '-(Skip)', rest: 0, skip: true }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        // GLOBAL APPLICATION STATE
+        let activeProgramKey = localStorage.getItem('cali_active_program') || 'calisthenics';
+        let currentActiveDay = null;
+        let sessionLogs = {}; 
+        let workoutHistory = JSON.parse(localStorage.getItem('cali_workout_history') || '[]');
+        
+        let timerInterval = null;
+        let timerTotalSeconds = 0;
+        let timerRemainingSeconds = 0;
+        let audioCtx = null;
+
+        function playBeep() {
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.6);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.6);
+            } catch (e) {
+                console.log('Audio playback restricted', e);
+            }
+        }
+
+        function getCurrentProgramData() {
+            return activeProgramKey === 'dumbbell' ? DUMBBELL_PROGRAM : CALISTHENICS_PROGRAM;
+        }
+
+        window.onload = function() {
+            switchProgram(activeProgramKey, false);
+            updateDashboard();
+            renderHistory();
+            lucide.createIcons();
+        };
+
+        function switchProgram(programKey, shouldSave = true) {
+            activeProgramKey = programKey;
+            if (shouldSave) {
+                localStorage.setItem('cali_active_program', activeProgramKey);
+            }
+
+            const caliBtn = document.getElementById('prog-btn-cali');
+            const dbBtn = document.getElementById('prog-btn-db');
+
+            if (programKey === 'calisthenics') {
+                caliBtn.className = "px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 border bg-brand-500 text-slate-950 border-brand-400 shadow-md cursor-pointer";
+                dbBtn.className = "px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 border bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200 cursor-pointer";
+                
+                document.getElementById('program-display-title').textContent = "5-Day Calisthenics Program";
+                document.getElementById('program-display-desc').textContent = "Bodyweight focus with targeted fat loss, hypertrophy, and strength sets.";
+                
+                document.getElementById('program-info-list').innerHTML = `
+                    <li><strong class="text-slate-200">Set 1 (Fat Loss):</strong> Standard version for high reps (15-25+ reps).</li>
+                    <li><strong class="text-slate-200">Set 2 (Hypertrophy):</strong> Harder variation or 3-4 sec slow lowering (8-12 reps).</li>
+                    <li><strong class="text-slate-200">Set 3 (Strength):</strong> Hardest variation or backpack added load (4-6 reps).</li>
+                    <li><strong class="text-slate-200">Progression Rule:</strong> Hit top reps 2 workouts in a row -> upgrade variation or add +2-3kg load.</li>
+                `;
+            } else {
+                dbBtn.className = "px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 border bg-brand-500 text-slate-950 border-brand-400 shadow-md cursor-pointer";
+                caliBtn.className = "px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 border bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200 cursor-pointer";
+                
+                document.getElementById('program-display-title').textContent = "5-Day Dumbbell & Pull-Up Program";
+                document.getElementById('program-display-desc').textContent = "Dumbbell hypertrophy & heavy compound split with pull-up & dip station.";
+                
+                document.getElementById('program-info-list').innerHTML = `
+                    <li><strong class="text-slate-200">Target Dumbbell Loads:</strong> Pre-filled target DB weights (10kg - 24kg) across exercise tiers.</li>
+                    <li><strong class="text-slate-200">Set Progression:</strong> Light/High-rep Fat Loss set -> Moderate Hypertrophy -> Heavy Strength set.</li>
+                    <li><strong class="text-slate-200">Rest Durations:</strong> 30s (isolations), 45s (compounds), 90-120s (heavy strength & legs).</li>
+                    <li><strong class="text-slate-200">Flexibility:</strong> Modify dumbbell weights anytime during your session to fit your available equipment.</li>
+                `;
+            }
+
+            renderWorkoutPicker();
+        }
+
+        function switchTab(tabName) {
+            const tabs = ['workout', 'dashboard', 'history'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                const navEl = document.getElementById(`nav-${t}`);
+                if (t === tabName) {
+                    el.classList.remove('hidden');
+                    navEl.classList.add('bg-brand-600/20', 'text-brand-400', 'border', 'border-brand-500/30');
+                    navEl.classList.remove('text-slate-400');
+                } else {
+                    el.classList.add('hidden');
+                    navEl.classList.remove('bg-brand-600/20', 'text-brand-400', 'border', 'border-brand-500/30');
+                    navEl.classList.add('text-slate-400');
+                }
+            });
+
+            if (tabName === 'dashboard') {
+                updateDashboard();
+            } else if (tabName === 'history') {
+                renderHistory();
+            }
+        }
+
+        function renderWorkoutPicker() {
+            const container = document.getElementById('days-grid');
+            const program = getCurrentProgramData();
+
+            container.innerHTML = program.map(day => `
+                <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 transition flex flex-col justify-between group">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-wider bg-slate-800 text-brand-400 border border-slate-700">
+                                ${day.day}
+                            </span>
+                            <span class="text-xs text-slate-500 font-medium">${day.exercises.length} Exercises</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-white group-hover:text-brand-400 transition">${day.title}</h3>
+                        <p class="text-xs text-slate-400 mt-1">${day.subtitle}</p>
+
+                        <div class="mt-4 space-y-1">
+                            ${day.exercises.slice(0, 3).map(ex => `
+                                <div class="text-xs text-slate-400 flex items-center space-x-2">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
+                                    <span class="truncate">${ex.name}</span>
+                                </div>
+                            `).join('')}
+                            ${day.exercises.length > 3 ? `<div class="text-[11px] text-slate-500 italic">+${day.exercises.length - 3} more exercises</div>` : ''}
+                        </div>
+                    </div>
+
+                    <button onclick="startWorkout('${day.id}')" class="mt-6 w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-brand-600 hover:text-slate-950 font-bold text-sm text-slate-200 transition flex items-center justify-center space-x-2 border border-slate-700 hover:border-brand-500 cursor-pointer">
+                        <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+                        <span>Start Session</span>
+                    </button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function startWorkout(dayId) {
+            const program = getCurrentProgramData();
+            currentActiveDay = program.find(d => d.id === dayId);
+            sessionLogs = {};
+
+            currentActiveDay.exercises.forEach((ex, exIdx) => {
+                sessionLogs[exIdx] = {};
+                ex.sets.forEach((st, stIdx) => {
+                    if (!st.skip) {
+                        sessionLogs[exIdx][stIdx] = {
+                            reps: st.defaultReps || 0,
+                            weight: st.defaultWeight || 0,
+                            completed: false
+                        };
+                    }
+                });
+            });
+
+            document.getElementById('workout-picker-container').classList.add('hidden');
+            document.getElementById('active-session-container').classList.remove('hidden');
+
+            document.getElementById('active-program-badge').textContent = activeProgramKey === 'dumbbell' ? 'Dumbbell' : 'Calisthenics';
+            document.getElementById('active-day-badge').textContent = currentActiveDay.day;
+            document.getElementById('active-workout-title').textContent = currentActiveDay.title;
+            document.getElementById('active-workout-subtitle').textContent = currentActiveDay.subtitle;
+
+            renderActiveExercises();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function renderActiveExercises() {
+            const list = document.getElementById('exercise-list');
+            list.innerHTML = currentActiveDay.exercises.map((ex, exIdx) => `
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <h3 class="font-black text-lg text-white flex items-center space-x-2">
+                            <span class="w-2 h-2 rounded-full bg-brand-400"></span>
+                            <span>${ex.name}</span>
+                        </h3>
+                    </div>
+
+                    <div class="space-y-3">
+                        ${ex.sets.map((set, setIdx) => {
+                            if (set.skip) {
+                                return `
+                                    <div class="flex items-center justify-between p-3 bg-slate-950/40 rounded-xl border border-slate-800/40 opacity-50">
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-xs font-bold text-slate-500 w-24">Set ${setIdx + 1}: ${set.type}</span>
+                                            <span class="text-xs text-slate-500 italic">-(Skipped in plan)</span>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+
+                            const logData = sessionLogs[exIdx][setIdx];
+                            const isDone = logData.completed;
+
+                            return `
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border transition gap-3 ${isDone ? 'bg-brand-950/20 border-brand-500/40' : 'bg-slate-950/80 border-slate-800'}">
+                                    
+                                    <div class="space-y-0.5">
+                                        <div class="flex items-center space-x-2">
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                                                set.type === 'Fat Loss' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                                                set.type === 'Hypertrophy' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' :
+                                                'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                            }">
+                                                Set ${setIdx + 1} • ${set.type}
+                                            </span>
+                                            <span class="text-xs text-slate-400 font-medium">${set.desc}</span>
+                                        </div>
+                                        <div class="text-[11px] text-slate-500">Target Rest: ${set.rest}s</div>
+                                    </div>
+
+                                    <div class="flex items-center space-x-2 sm:space-x-3 self-end sm:self-auto">
+                                        <div class="flex items-center space-x-1.5 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800">
+                                            <label class="text-[10px] text-slate-400 font-bold uppercase">Reps</label>
+                                            <input type="number" value="${logData.reps}" onchange="updateSetInput(${exIdx}, ${setIdx}, 'reps', this.value)" class="w-12 bg-slate-800 text-white font-bold text-center text-xs py-1 rounded focus:outline-none focus:ring-1 focus:ring-brand-500">
+                                        </div>
+
+                                        <div class="flex items-center space-x-1.5 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800">
+                                            <label class="text-[10px] text-slate-400 font-bold uppercase">Kg</label>
+                                            <input type="number" step="0.5" value="${logData.weight}" placeholder="0" onchange="updateSetInput(${exIdx}, ${setIdx}, 'weight', this.value)" class="w-12 bg-slate-800 text-white font-bold text-center text-xs py-1 rounded focus:outline-none focus:ring-1 focus:ring-brand-500">
+                                        </div>
+
+                                        <button onclick="toggleSetComplete(${exIdx}, ${setIdx}, ${set.rest}, '${ex.name.replace(/'/g, "\\'")}')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer ${
+                                            isDone ? 'bg-brand-500 text-slate-950' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                                        }">
+                                            <i data-lucide="${isDone ? 'check-square' : 'square'}" class="w-4 h-4"></i>
+                                            <span>${isDone ? 'Done' : 'Log'}</span>
+                                        </button>
+                                    </div>
+
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function updateSetInput(exIdx, setIdx, field, val) {
+            if (sessionLogs[exIdx] && sessionLogs[exIdx][setIdx]) {
+                sessionLogs[exIdx][setIdx][field] = parseFloat(val) || 0;
+            }
+        }
+
+        function toggleSetComplete(exIdx, setIdx, restSeconds, exName) {
+            const currentStatus = sessionLogs[exIdx][setIdx].completed;
+            sessionLogs[exIdx][setIdx].completed = !currentStatus;
+
+            renderActiveExercises();
+
+            if (!currentStatus && restSeconds > 0) {
+                startRestTimer(restSeconds, `${exName} (Set ${setIdx + 1})`);
+            }
+        }
+
+        function startRestTimer(seconds, label) {
+            clearInterval(timerInterval);
+            timerTotalSeconds = seconds;
+            timerRemainingSeconds = seconds;
+
+            const modal = document.getElementById('timer-modal');
+            const titleEl = document.getElementById('timer-exercise-name');
+            titleEl.textContent = label;
+
+            modal.classList.remove('translate-y-32', 'opacity-0', 'pointer-events-none');
+            updateTimerDisplay();
+
+            timerInterval = setInterval(() => {
+                timerRemainingSeconds--;
+                if (timerRemainingSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    playBeep();
+                    setTimeout(skipRestTimer, 1200);
+                } else {
+                    updateTimerDisplay();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const textEl = document.getElementById('timer-countdown-text');
+            const ringEl = document.getElementById('timer-progress-ring');
+            textEl.textContent = `${timerRemainingSeconds}s`;
+
+            const circumference = 2 * Math.PI * 20;
+            const offset = circumference - (timerRemainingSeconds / timerTotalSeconds) * circumference;
+            ringEl.style.strokeDashoffset = offset;
+        }
+
+        function adjustTimer(amount) {
+            timerRemainingSeconds = Math.max(0, timerRemainingSeconds + amount);
+            timerTotalSeconds = Math.max(timerTotalSeconds, timerRemainingSeconds);
+            updateTimerDisplay();
+        }
+
+        function skipRestTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            const modal = document.getElementById('timer-modal');
+            if (modal) {
+                modal.classList.add('translate-y-32', 'opacity-0', 'pointer-events-none');
+            }
+        }
+
+        function confirmAbortWorkout() {
+            currentActiveDay = null;
+            sessionLogs = {};
+            skipRestTimer();
+
+            const activeContainer = document.getElementById('active-session-container');
+            const pickerContainer = document.getElementById('workout-picker-container');
+            
+            if (activeContainer) activeContainer.classList.add('hidden');
+            if (pickerContainer) pickerContainer.classList.remove('hidden');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function finishWorkout() {
+            if (!currentActiveDay) return;
+
+            let totalLoggedReps = 0;
+            const exercisesSummary = [];
+
+            currentActiveDay.exercises.forEach((ex, exIdx) => {
+                const loggedSets = [];
+                ex.sets.forEach((st, stIdx) => {
+                    if (!st.skip) {
+                        const log = sessionLogs[exIdx] ? sessionLogs[exIdx][stIdx] : null;
+                        if (log) {
+                            totalLoggedReps += Number(log.reps || 0);
+                            loggedSets.push({
+                                setNum: stIdx + 1,
+                                type: st.type,
+                                reps: Number(log.reps || 0),
+                                weight: Number(log.weight || 0),
+                                completed: !!log.completed
+                            });
+                        }
+                    }
+                });
+
+                if (loggedSets.length > 0) {
+                    exercisesSummary.push({
+                        name: ex.name,
+                        sets: loggedSets
+                    });
+                }
+            });
+
+            const record = {
+                id: Date.now(),
+                programName: activeProgramKey === 'dumbbell' ? 'Dumbbell Plan' : 'Calisthenics Plan',
+                date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                timestamp: Date.now(),
+                dayTitle: currentActiveDay.day + ' - ' + currentActiveDay.title,
+                dayId: currentActiveDay.id,
+                totalReps: totalLoggedReps,
+                exercises: exercisesSummary
+            };
+
+            workoutHistory.unshift(record);
+            localStorage.setItem('cali_workout_history', JSON.stringify(workoutHistory));
+
+            skipRestTimer();
+            currentActiveDay = null;
+            sessionLogs = {};
+
+            const activeContainer = document.getElementById('active-session-container');
+            const pickerContainer = document.getElementById('workout-picker-container');
+            
+            if (activeContainer) activeContainer.classList.add('hidden');
+            if (pickerContainer) pickerContainer.classList.remove('hidden');
+
+            switchTab('dashboard');
+        }
+
+        let volumeChartInstance = null;
+        let distributionChartInstance = null;
+
+        function updateDashboard() {
+            const totalWorkouts = workoutHistory.length;
+            let totalReps = 0;
+            const dayCounts = {};
+
+            workoutHistory.forEach(w => {
+                totalReps += w.totalReps;
+                dayCounts[w.dayId] = (dayCounts[w.dayId] || 0) + 1;
+            });
+
+            document.getElementById('stat-total-workouts').textContent = totalWorkouts;
+            document.getElementById('stat-total-reps').textContent = totalReps;
+            document.getElementById('stat-streak').textContent = calculateStreak();
+
+            let favDay = 'N/A';
+            let maxCount = 0;
+            const allPrograms = [...CALISTHENICS_PROGRAM, ...DUMBBELL_PROGRAM];
+            Object.keys(dayCounts).forEach(dId => {
+                if (dayCounts[dId] > maxCount) {
+                    maxCount = dayCounts[dId];
+                    const found = allPrograms.find(p => p.id === dId);
+                    if (found) favDay = found.day;
+                }
+            });
+            document.getElementById('stat-favorite-day').textContent = favDay;
+
+            renderCharts();
+        }
+
+        function calculateStreak() {
+            if (workoutHistory.length === 0) return 0;
+            const uniqueDates = [...new Set(workoutHistory.map(w => new Date(w.timestamp).toDateString()))];
+            return uniqueDates.length;
+        }
+
+        function renderCharts() {
+            const ctxVol = document.getElementById('chart-volume').getContext('2d');
+            const recentLogs = [...workoutHistory].reverse().slice(-7);
+            
+            const labels = recentLogs.map(l => l.date);
+            const dataReps = recentLogs.map(l => l.totalReps);
+
+            if (volumeChartInstance) volumeChartInstance.destroy();
+
+            volumeChartInstance = new Chart(ctxVol, {
+                type: 'line',
+                data: {
+                    labels: labels.length ? labels : ['No Data'],
+                    datasets: [{
+                        label: 'Total Reps',
+                        data: dataReps.length ? dataReps : [0],
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        borderWidth: 2,
+                        pointBackgroundColor: '#22c55e'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 } } }
+                    }
+                }
+            });
+
+            const ctxDist = document.getElementById('chart-distribution').getContext('2d');
+            const program = getCurrentProgramData();
+            const dayDistribution = program.map(p => {
+                return workoutHistory.filter(w => w.dayId === p.id).length;
+            });
+
+            if (distributionChartInstance) distributionChartInstance.destroy();
+
+            distributionChartInstance = new Chart(ctxDist, {
+                type: 'doughnut',
+                data: {
+                    labels: program.map(p => p.day),
+                    datasets: [{
+                        data: dayDistribution.some(v => v > 0) ? dayDistribution : [1, 1, 1, 1, 1],
+                        backgroundColor: ['#22c55e', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history-list-container');
+            if (workoutHistory.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 bg-slate-900 border border-slate-800 rounded-2xl">
+                        <i data-lucide="clipboard-x" class="w-10 h-10 text-slate-600 mx-auto mb-2"></i>
+                        <p class="text-slate-400 font-medium text-sm">No workout sessions logged yet.</p>
+                        <p class="text-xs text-slate-600 mt-1">Complete your first session from the Workout tab!</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = workoutHistory.map(item => `
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">${item.programName || 'Workout'}</span>
+                                <span class="text-xs text-slate-400">${item.date}</span>
+                            </div>
+                            <h3 class="font-bold text-white text-base mt-1">${item.dayTitle}</h3>
+                        </div>
+                        <span class="px-3 py-1 rounded-full text-xs font-black bg-brand-500/20 text-brand-400 border border-brand-500/30">
+                            ${item.totalReps} total reps
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        ${item.exercises.map(ex => `
+                            <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60 text-xs">
+                                <div class="font-semibold text-slate-200 mb-1">${ex.name}</div>
+                                <div class="space-y-0.5 text-slate-400">
+                                    ${ex.sets.map(s => `
+                                        <div>Set ${s.setNum} (${s.type}): <span class="text-white font-bold">${s.reps} reps</span> ${s.weight > 0 ? `<span class="text-brand-400">(${s.weight}kg)</span>` : ''}</div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function clearHistoryData() {
+            if (confirm("Are you sure you want to clear your entire workout history log? This cannot be undone.")) {
+                workoutHistory = [];
+                localStorage.removeItem('cali_workout_history');
+                renderHistory();
+                updateDashboard();
+            }
+        }
+    </script>
+</body>
+</html>
