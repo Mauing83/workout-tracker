@@ -117,16 +117,20 @@
 
   <div class="card">
     <label for="program">Program</label>
-    <select id="program">
+    <select id="program" onchange="updateDayOptions()">
       <option value="Calisthenics">Calisthenics</option>
       <option value="Dumbbell">Dumbbell</option>
     </select>
 
     <label for="day">Workout Day</label>
-    <input type="text" id="day" placeholder="e.g. Day 1 - Upper Body">
+    <select id="day" onchange="updateExerciseOptions()">
+      <!-- Populated dynamically -->
+    </select>
 
     <label for="exercise">Exercise</label>
-    <input type="text" id="exercise" placeholder="e.g. Push-ups / DB Press">
+    <select id="exercise">
+      <!-- Populated dynamically -->
+    </select>
 
     <div style="display: flex; gap: 10px;">
       <div style="flex: 1;">
@@ -155,6 +159,62 @@
     // Live Google Apps Script Web App URL
     const GOOGLE_SHEETS_API_URL = "https://script.google.com/macros/s/AKfycbyiZgnyilBHTyL9iuQ2eRYrpALe5ODvZBqHdPqtasxHaUmG6DpfUdoP7ZWo-JWMxtPO/exec";
 
+    // 5-Day Workout Libraries for both programs
+    const workoutData = {
+      "Calisthenics": {
+        "Day 1 - Upper Body (Push Focus)": ["Pull-ups", "Push-ups", "Pike Push-ups", "Dips", "Inverted Rows"],
+        "Day 2 - Lower Body & Core": ["Bodyweight Squats", "Bulgarian Split Squats", "Walking Lunges", "Calf Raises", "Plank Hold"],
+        "Day 3 - Upper Body (Pull Focus)": ["Chin-ups", "Wide Grip Pull-ups", "Australian Pull-ups", "Pike Push-ups", "Arm Circles"],
+        "Day 4 - Athletic Conditioning": ["Burpees", "Jump Squats", "Mountain Climbers", "Leg Raises", "Skaters"],
+        "Day 5 - Full Body Hypertrophy": ["Archer Push-ups", "Pistol Squats (Assisted)", "Diamond Push-ups", "Hanging Knee Raises", "Supermans"]
+      },
+      "Dumbbell": {
+        "Day 1 - Upper Body (Chest & Back)": ["DB Bench Press", "One-Arm DB Row", "DB Incline Press", "DB Pullover", "DB Flyes"],
+        "Day 2 - Lower Body (Quads & Glutes)": ["DB Goblet Squats", "DB Romanian Deadlifts", "DB Walking Lunges", "DB Calf Raises", "Weighted Crunch"],
+        "Day 3 - Shoulders & Arms": ["DB Overhead Press", "DB Lateral Raises", "DB Front Raises", "DB Bicep Curls", "DB Overhead Tricep Extension"],
+        "Day 4 - Lower Body (Posterior Chain)": ["DB Sumo Deadlifts", "DB Bulgarian Split Squats", "DB Step-Ups", "DB Single-Leg RDL", "Seated Calf Raises"],
+        "Day 5 - Full Body Power": ["DB Thrusters", "DB Renegade Rows", "DB Floor Press", "DB Clean & Press", "DB Hammer Curls"]
+      }
+    };
+
+    function updateDayOptions() {
+      const programSelect = document.getElementById('program');
+      const daySelect = document.getElementById('day');
+      const selectedProgram = programSelect.value;
+      
+      daySelect.innerHTML = '';
+      const days = Object.keys(workoutData[selectedProgram]);
+      days.forEach(day => {
+        const opt = document.createElement('option');
+        opt.value = day;
+        opt.textContent = day;
+        daySelect.appendChild(opt);
+      });
+      updateExerciseOptions();
+    }
+
+    function updateExerciseOptions() {
+      const programSelect = document.getElementById('program');
+      const daySelect = document.getElementById('day');
+      const exerciseSelect = document.getElementById('exercise');
+      
+      const selectedProgram = programSelect.value;
+      const selectedDay = daySelect.value;
+      
+      exerciseSelect.innerHTML = '';
+      if (workoutData[selectedProgram] && workoutData[selectedProgram][selectedDay]) {
+        workoutData[selectedProgram][selectedDay].forEach(ex => {
+          const opt = document.createElement('option');
+          opt.value = ex;
+          opt.textContent = ex;
+          exerciseSelect.appendChild(opt);
+        });
+      }
+    }
+
+    // Initialize dropdowns on load
+    updateDayOptions();
+
     let logs = JSON.parse(localStorage.getItem('workoutLogs')) || [];
 
     function renderLogs() {
@@ -182,9 +242,9 @@
         notes: document.getElementById('notes').value
       };
 
-      if (!payload.exercise || !payload.repsOrWeight) {
+      if (!payload.repsOrWeight) {
         statusDiv.style.color = "#FF5252";
-        statusDiv.innerText = "Please enter an exercise and reps/weight.";
+        statusDiv.innerText = "Please enter reps or weight.";
         return;
       }
 
