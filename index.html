@@ -90,6 +90,20 @@
       opacity: 0.8;
     }
 
+    .recommendation-box {
+      background-color: #16291E;
+      border: 1px dashed var(--accent-color);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: #E0E0E0;
+    }
+
+    .recommendation-box strong {
+      color: var(--accent-color);
+    }
+
     .log-item {
       padding: 10px;
       border-bottom: 1px solid var(--border-color);
@@ -118,8 +132,8 @@
   <div class="card">
     <label for="program">Program</label>
     <select id="program" onchange="updateDayOptions()">
+      <option value="Dumbbell">Dumbbell (5-Day PDF Plan)</option>
       <option value="Calisthenics">Calisthenics</option>
-      <option value="Dumbbell">Dumbbell</option>
     </select>
 
     <label for="day">Workout Day</label>
@@ -128,9 +142,14 @@
     </select>
 
     <label for="exercise">Exercise</label>
-    <select id="exercise">
+    <select id="exercise" onchange="updateRecommendation()">
       <!-- Populated dynamically -->
     </select>
+
+    <!-- PDF Guide Target Reference Box -->
+    <div id="recBox" class="recommendation-box">
+      Target: Select an exercise
+    </div>
 
     <div style="display: flex; gap: 10px;">
       <div style="flex: 1;">
@@ -138,8 +157,8 @@
         <input type="number" id="set" placeholder="1" value="1">
       </div>
       <div style="flex: 2;">
-        <label for="reps">Reps / Weight</label>
-        <input type="text" id="reps" placeholder="e.g. 15 reps / 20kg">
+        <label for="reps">Reps / Weight Logged</label>
+        <input type="text" id="reps" placeholder="e.g. 18kg x 10">
       </div>
     </div>
 
@@ -159,21 +178,86 @@
     // Live Google Apps Script Web App URL
     const GOOGLE_SHEETS_API_URL = "https://script.google.com/macros/s/AKfycbyiZgnyilBHTyL9iuQ2eRYrpALe5ODvZBqHdPqtasxHaUmG6DpfUdoP7ZWo-JWMxtPO/exec";
 
-    // 5-Day Workout Libraries for both programs
+    // Workout Data matching official PDF guides exactly
     const workoutData = {
-      "Calisthenics": {
-        "Day 1 - Upper Body (Push Focus)": ["Pull-ups", "Push-ups", "Pike Push-ups", "Dips", "Inverted Rows"],
-        "Day 2 - Lower Body & Core": ["Bodyweight Squats", "Bulgarian Split Squats", "Walking Lunges", "Calf Raises", "Plank Hold"],
-        "Day 3 - Upper Body (Pull Focus)": ["Chin-ups", "Wide Grip Pull-ups", "Australian Pull-ups", "Pike Push-ups", "Arm Circles"],
-        "Day 4 - Athletic Conditioning": ["Burpees", "Jump Squats", "Mountain Climbers", "Leg Raises", "Skaters"],
-        "Day 5 - Full Body Hypertrophy": ["Archer Push-ups", "Pistol Squats (Assisted)", "Diamond Push-ups", "Hanging Knee Raises", "Supermans"]
-      },
       "Dumbbell": {
-        "Day 1 - Upper Body (Chest & Back)": ["DB Bench Press", "One-Arm DB Row", "DB Incline Press", "DB Pullover", "DB Flyes"],
-        "Day 2 - Lower Body (Quads & Glutes)": ["DB Goblet Squats", "DB Romanian Deadlifts", "DB Walking Lunges", "DB Calf Raises", "Weighted Crunch"],
-        "Day 3 - Shoulders & Arms": ["DB Overhead Press", "DB Lateral Raises", "DB Front Raises", "DB Bicep Curls", "DB Overhead Tricep Extension"],
-        "Day 4 - Lower Body (Posterior Chain)": ["DB Sumo Deadlifts", "DB Bulgarian Split Squats", "DB Step-Ups", "DB Single-Leg RDL", "Seated Calf Raises"],
-        "Day 5 - Full Body Power": ["DB Thrusters", "DB Renegade Rows", "DB Floor Press", "DB Clean & Press", "DB Hammer Curls"]
+        "Day 1 - Push (Chest / Shoulders / Triceps)": {
+          "Dumbbell bench press": "Set 1: 12kg x 20 (45s) | Set 2: 18kg x 10 (45s) | Set 3: 20-22kg x 5 (90s)",
+          "Dumbbell incline press": "Set 1: 10kg x 15-20 (45s) | Set 2: 14kg x 10-12 (45s) | Set 3: 16kg x 6 (90s)",
+          "Dips (bw/weighted)": "Set 1: BW x 15-20 (45s) | Set 2: BW/light x 10-12 (45s) | Set 3: Weighted x 6-8 (90s)",
+          "Dumbbell shoulder press": "Set 1: 11kg x 15-20 (45s) | Set 2: 16kg x 10 (45s) | Set 3: 18-20kg x 5 (90s)",
+          "Dumbbell lateral raises": "Set 1: 6-7kg x 15-20 (30s) | Set 2: 10kg x 12-15 (30s) | Set 3: Skip",
+          "Overhead triceps extension": "Set 1: 10-11kg x 15-20 (30s) | Set 2: 16kg x 12 (30s) | Set 3: 18kg x 6 (60s)"
+        },
+        "Day 2 - Pull (Back / Biceps)": {
+          "Pull-ups": "Set 1: BW AMRAP aim 15+ (45s) | Set 2: BW x 8-10 (45s) | Set 3: Weighted x 4-6 (90s)",
+          "Dumbbell bent-over rows": "Set 1: 12kg x 15-20 (45s) | Set 2: 16-18kg x 10 (45s) | Set 3: 20kg x 5-6 (90s)",
+          "Dumbbell single-arm rows": "Set 1: 11kg x 15-20 (45s) | Set 2: 16kg x 10-12 (45s) | Set 3: 18-20kg x 6 (90s)",
+          "Chin-ups": "Set 1: BW AMRAP (45s) | Set 2: BW to failure (45s) | Set 3: Weighted x 4-6 (90s)",
+          "Dumbbell bicep curls": "Set 1: 7-8kg x 15-20 (30s) | Set 2: 11.5kg x 10-12 (30s) | Set 3: 13-14kg x 6 (60s)",
+          "Dumbbell hammer curls": "Set 1: 7-8kg x 15-20 (30s) | Set 2: 10-11kg x 12 (30s) | Set 3: Skip"
+        },
+        "Day 3 - Legs + Core": {
+          "Dumbbell goblet squats": "Set 1: 12kg x 15-20 (45s) | Set 2: 18kg x 10-12 (45s) | Set 3: 22-24kg x 5 (120s)",
+          "Dumbbell Romanian deadlifts": "Set 1: 11kg x 15-20 (45s) | Set 2: 16kg x 10-12 (45s) | Set 3: 18-20kg x 5-6 (120s)",
+          "Dumbbell walking lunges": "Set 1: 11kg x 15-20/leg (45s) | Set 2: 16kg x 10/leg (45s) | Set 3: 18-20kg x 5-6/leg (120s)",
+          "Bulgarian squats": "Set 1: 11kg x 15-20/leg (45s) | Set 2: 16kg x 12/leg (45s) | Set 3: 18kg x 6/leg (90s)",
+          "Dumbbell calf raises": "Set 1: Light-mod x 20 (30s) | Set 2: Moderate x 15-20 (30s) | Set 3: Skip",
+          "Hanging leg raises": "Set 1: AMRAP (30s) | Set 2: 12-15 controlled (30s) | Set 3: N/A"
+        },
+        "Day 4 - Upper A (Chest / Back / Shoulders / Arms)": {
+          "Dumbbell incline press": "Set 1: 10kg x 15-20 (45s) | Set 2: 14-15kg x 10 (45s) | Set 3: 17kg x 6 (90s)",
+          "Dumbbell single-arm rows": "Set 1: 11kg x 15-20 (45s) | Set 2: 16kg x 10-12 (45s) | Set 3: 18kg x 6 (90s)",
+          "Dumbbell Arnold press": "Set 1: 10kg x 15-20 (45s) | Set 2: 14kg x 10-12 (45s) | Set 3: 16kg x 6 (90s)",
+          "Dips": "Set 1: BW x 15-20 (45s) | Set 2: BW/light x 10-12 (45s) | Set 3: Weighted x 6-8 (90s)",
+          "Wide-grip pull-ups": "Set 1: BW AMRAP (45s) | Set 2: BW x 8-10 (45s) | Set 3: Weighted x 4-6 (90s)",
+          "Dumbbell curls (alternate bicep/hammer)": "Set 1: 7-8kg x 15-20 (30s) | Set 2: 11kg x 10-12 (30s) | Set 3: Skip"
+        },
+        "Day 5 - Upper B (Back / Shoulders / Arms + Core)": {
+          "Chin-ups": "Set 1: BW AMRAP (45s) | Set 2: BW to failure (45s) | Set 3: Weighted x 4-6 (90s)",
+          "Dumbbell bent-over rows": "Set 1: 12kg x 15-20 (45s) | Set 2: 16-18kg x 10 (45s) | Set 3: 20kg x 5-6 (90s)",
+          "Dumbbell lateral raises": "Set 1: 6-7kg x 15-20 (30s) | Set 2: 10kg x 12-15 (30s) | Set 3: Skip",
+          "Overhead triceps extension": "Set 1: 10-11kg x 15-20 (30s) | Set 2: 16kg x 12 (30s) | Set 3: 18kg x 6 (60s)",
+          "Dumbbell hammer curls": "Set 1: 7-8kg x 15-20 (30s) | Set 2: 10-11kg x 12 (30s) | Set 3: Skip",
+          "Weighted sit-ups / Russian twists": "Set 1: Light x 20 (30s) | Set 2: Moderate x 15-20 (30s) | Set 3: N/A"
+        }
+      },
+      "Calisthenics": {
+        "Day 1 - Upper Body (Push Focus)": {
+          "Pull-ups": "Target: 3-4 sets x 8-12 reps (Bodyweight)",
+          "Push-ups": "Target: 3-4 sets x 15-20 reps (Bodyweight)",
+          "Pike Push-ups": "Target: 3 sets x 8-12 reps",
+          "Dips": "Target: 3 sets x 10-15 reps",
+          "Inverted Rows": "Target: 3 sets x 10-12 reps"
+        },
+        "Day 2 - Lower Body & Core": {
+          "Bodyweight Squats": "Target: 3-4 sets x 20-25 reps",
+          "Bulgarian Split Squats": "Target: 3 sets x 10-12 reps per leg",
+          "Walking Lunges": "Target: 3 sets x 12-16 steps total",
+          "Calf Raises": "Target: 3 sets x 20 reps",
+          "Plank Hold": "Target: 3 sets x 45-60 seconds"
+        },
+        "Day 3 - Upper Body (Pull Focus)": {
+          "Chin-ups": "Target: 3-4 sets x 6-10 reps",
+          "Wide Grip Pull-ups": "Target: 3 sets x 6-8 reps",
+          "Australian Pull-ups": "Target: 3 sets x 12-15 reps",
+          "Pike Push-ups": "Target: 3 sets x 10 reps",
+          "Arm Circles": "Target: 2 sets x 30s continuous"
+        },
+        "Day 4 - Athletic Conditioning": {
+          "Burpees": "Target: 4 rounds x 15 reps",
+          "Jump Squats": "Target: 3 sets x 12-15 explosive reps",
+          "Mountain Climbers": "Target: 3 sets x 40 reps total",
+          "Leg Raises": "Target: 3 sets x 12-15 reps",
+          "Skaters": "Target: 3 sets x 30 seconds"
+        },
+        "Day 5 - Full Body Hypertrophy": {
+          "Archer Push-ups": "Target: 3 sets x 6-8 reps per side",
+          "Pistol Squats (Assisted)": "Target: 3 sets x 5-8 reps per leg",
+          "Diamond Push-ups": "Target: 3 sets x 10-12 reps",
+          "Hanging Knee Raises": "Target: 3 sets x 10-15 reps",
+          "Supermans": "Target: 3 sets x 15 reps"
+        }
       }
     };
 
@@ -203,12 +287,27 @@
       
       exerciseSelect.innerHTML = '';
       if (workoutData[selectedProgram] && workoutData[selectedProgram][selectedDay]) {
-        workoutData[selectedProgram][selectedDay].forEach(ex => {
+        const exercises = Object.keys(workoutData[selectedProgram][selectedDay]);
+        exercises.forEach(ex => {
           const opt = document.createElement('option');
           opt.value = ex;
           opt.textContent = ex;
           exerciseSelect.appendChild(opt);
         });
+      }
+      updateRecommendation();
+    }
+
+    function updateRecommendation() {
+      const program = document.getElementById('program').value;
+      const day = document.getElementById('day').value;
+      const exercise = document.getElementById('exercise').value;
+      const recBox = document.getElementById('recBox');
+
+      if (workoutData[program] && workoutData[program][day] && workoutData[program][day][exercise]) {
+        recBox.innerHTML = `<strong>PDF Target:</strong> ${workoutData[program][day][exercise]}`;
+      } else {
+        recBox.innerHTML = `<strong>PDF Target:</strong> Follow recommended rep range.`;
       }
     }
 
